@@ -1,4 +1,3 @@
-//const BASE_URL = "https://jpl-admin.onrender.com";
 const BASE_URL = "https://jpl-backend.onrender.com";
 //const BASE_URL = "http://localhost:5000";
 
@@ -34,7 +33,34 @@ async function loadRequests() {
 
     // Update UI
     updateStats(requests);
+    
+    // Check if modal is currently open
+    const isModalOpen = document.querySelector('.modal.show') !== null;
+    const currentModalId = isModalOpen ? document.querySelector('.modal.show').id : null;
+    
+    // Update the table
     displayRequests(requests);
+    
+    // If modal was open, restore it
+    if (isModalOpen && currentModalId) {
+      try {
+        const modalElement = document.getElementById(currentModalId);
+        if (modalElement) {
+          // Clean up any other modals first
+          cleanupExistingModals();
+          // Re-add and show the modal
+          document.body.appendChild(modalElement);
+          const modal = new bootstrap.Modal(modalElement, {
+            backdrop: 'static',
+            keyboard: false
+          });
+          modal.show();
+        }
+      } catch (modalError) {
+        console.error('Error restoring modal:', modalError);
+        cleanupExistingModals();
+      }
+    }
   } catch (error) {
     console.error("Error loading requests:", error);
     // Show error message to user
@@ -130,7 +156,7 @@ function displayRequests(requests, filter = "all") {
             </td>
             <td>
                 ${
-                  request.status.ithod === "pending"
+                  request.status.ithod === "pending" && !request.actionedViaEmail?.ithod
                     ? `
                     <button class="btn btn-sm btn-outline-success action-btn approve" 
                             data-id="${request._id}" 
@@ -152,6 +178,8 @@ function displayRequests(requests, filter = "all") {
                         : ''
                     }
                 `
+                    : request.actionedViaEmail?.ithod
+                    ? `<span class="text-muted">Action taken via email</span>`
                     : ""
                 }
             </td>
@@ -169,170 +197,195 @@ function displayRequests(requests, filter = "all") {
   });
 }
 
+// Helper function to clean up existing modals
+function cleanupExistingModals() {
+  try {
+    // Remove all existing modals
+    const existingModals = document.querySelectorAll('.modal');
+    existingModals.forEach(modal => {
+      try {
+        // Hide the modal first if it's shown
+        if (modal.classList.contains('show')) {
+          modal.classList.remove('show');
+          modal.style.display = 'none';
+        }
+        // Remove the modal from DOM
+        modal.remove();
+      } catch (modalError) {
+        console.error('Error cleaning up modal:', modalError);
+      }
+    });
+
+    // Remove all existing modal backdrops
+    const existingBackdrops = document.querySelectorAll('.modal-backdrop');
+    existingBackdrops.forEach(backdrop => {
+      try {
+        backdrop.remove();
+      } catch (backdropError) {
+        console.error('Error removing backdrop:', backdropError);
+      }
+    });
+
+    // Reset body styles
+    document.body.style.overflow = 'auto';
+    document.body.style.paddingRight = '0';
+    document.body.classList.remove('modal-open');
+  } catch (error) {
+    console.error('Error in cleanupExistingModals:', error);
+  }
+}
+
 // Show request details in a modal
 function showRequestDetails(requestId) {
-  const requests = JSON.parse(localStorage.getItem("requests") || "[]");
-  
-  // Find the request with matching ID
-  const request = requests.find(r => {
-    // Handle both string and object ID comparison
-    const storedId = typeof r._id === 'object' ? r._id.$oid : r._id;
-    return storedId === requestId;
-  });
+  try {
+    // Prevent multiple modals from being created
+    if (document.querySelector('.modal.show')) {
+      return;
+    }
 
-  if (!request) {
-    console.error('Request not found for ID:', requestId);
-    alert('Request details not found');
-    return;
-  }
+    // Clean up any existing modals first
+    cleanupExistingModals();
 
-  // Debug log to verify correct request is found
-  console.log('Found request:', request);
+    const requests = JSON.parse(localStorage.getItem("requests") || "[]");
+    
+    // Find the request with matching ID
+    const request = requests.find(r => {
+      // Handle both string and object ID comparison
+      const storedId = typeof r._id === 'object' ? r._id.$oid : r._id;
+      return storedId === requestId;
+    });
 
-  // Clean up any existing modals first
-  const existingModals = document.querySelectorAll('#requestDetailsModal');
-  existingModals.forEach(modal => modal.remove());
-  const existingBackdrops = document.querySelectorAll('.modal-backdrop');
-  existingBackdrops.forEach(backdrop => backdrop.remove());
+    if (!request) {
+      console.error('Request not found for ID:', requestId);
+      alert('Request details not found');
+      return;
+    }
 
-  // Create modal HTML with proper data display
-  const modalHTML = `
-    <div class="modal fade" id="requestDetailsModal" tabindex="-1" aria-labelledby="requestDetailsModalLabel" aria-hidden="true">
-      <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="requestDetailsModalLabel">Request Details - #${request._id ? request._id.slice(-4) : 'N/A'}</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body">
-            <div class="row">
-              <div class="col-md-6">
-                <div class="card mb-3">
-                  <div class="card-header bg-grey text-black">
-                    <h6>Personal Information</h6>
+    // Create modal HTML with proper data display
+    const modalHTML = `
+      <div class="modal fade" id="requestDetailsModal" tabindex="-1" aria-labelledby="requestDetailsModalLabel" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="requestDetailsModalLabel">Request Details - #${request._id ? request._id.slice(-4) : 'N/A'}</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="card mb-3">
+                    <div class="card-header bg-grey text-black">
+                      <h6>Personal Information</h6>
+                    </div>
+                    <div class="card-body">
+                      <p><strong>Name:</strong> ${request.name || 'N/A'}</p>
+                      <p><strong>Employee Code:</strong> ${request.employeeCode || 'N/A'}</p>
+                      <p><strong>Department:</strong> ${request.department || 'N/A'}</p>
+                      <p><strong>Location:</strong> ${request.location || 'N/A'}</p>
+                      <p><strong>Email:</strong> ${request.email || 'N/A'}</p>
+                      <p><strong>Contact:</strong> ${request.contactNumber || 'N/A'}</p>
+                    </div>
                   </div>
-                  <div class="card-body">
-                    <p><strong>Name:</strong> ${request.name || 'N/A'}</p>
-                    <p><strong>Employee Code:</strong> ${request.employeeCode || 'N/A'}</p>
-                    <p><strong>Department:</strong> ${request.department || 'N/A'}</p>
-                    <p><strong>Location:</strong> ${request.location || 'N/A'}</p>
-                    <p><strong>Email:</strong> ${request.email || 'N/A'}</p>
-                    <p><strong>Contact:</strong> ${request.contactNumber || 'N/A'}</p>
-                   
-                    
+                </div>
+                <div class="col-md-6">
+                  <div class="card mb-3">
+                    <div class="card-header bg-grey text-black">
+                      <h6>Request Details</h6>
+                    </div>
+                    <div class="card-body">
+                      <p><strong>Item Requested:</strong> ${request.item || 'N/A'}</p>
+                      <p><strong>Address:</strong> ${request.address || 'N/A'}</p>
+                      <p><strong>Special Allowance:</strong> ${request.specialAllowance || 'N/A'}</p>
+                      <p><strong>Reason:</strong> ${request.reason || 'N/A'}</p>
+                      <p><strong>Date Requested:</strong> ${new Date(request.createdAt).toLocaleString() || 'N/A'}</p>
+                      <p><strong>Alternate Contact:</strong> ${request.alternateContactNumber || 'N/A'}</p>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div class="col-md-6">
-                <div class="card mb-3">
-                  <div class="card-header bg-grey text-black">
-                    <h6>Request Details</h6>
+              
+              <div class="card">
+                <div class="card-header bg-grey text-black">
+                  <h6>Approval Status</h6>
+                </div>
+                <div class="card-body">
+                  <div class="d-flex justify-content-between">
+                    <div class="text-center">
+                      <p class="mb-1"><strong>HOD</strong></p>
+                      <span class="badge ${getStatusBadgeClass(request.status.hod)}">
+                        ${formatStatus(request.status.hod)}
+                      </span>
+                    </div>
+                    <div class="text-center">
+                      <p class="mb-1"><strong>HR</strong></p>
+                      <span class="badge ${getStatusBadgeClass(request.status.hr)}">
+                        ${formatStatus(request.status.hr)}
+                      </span>
+                    </div>
+                    <div class="text-center">
+                      <p class="mb-1"><strong>IT</strong></p>
+                      <span class="badge ${getStatusBadgeClass(request.status.ithod)}">
+                        ${formatStatus(request.status.ithod)}
+                      </span>
+                    </div>
                   </div>
-                  <div class="card-body">
-                    <p><strong>Item Requested:</strong> ${request.item || 'N/A'}</p>
-                    <p><strong>Address:</strong> ${request.address || 'N/A'}</p>
-                    <p><strong>Special Allowance:</strong> ${request.specialAllowance || 'N/A'}</p>
-                    <p><strong>Reason:</strong> ${request.reason || 'N/A'}</p>
-                    <p><strong>Date Requested:</strong> ${new Date(request.createdAt).toLocaleString() || 'N/A'}</p>
-                    <p><strong>Alternate Contact:</strong> ${request.alternateContactNumber || 'N/A'}</p>
+                </div>
+              </div>
+
+              <div class="card mt-3">
+                <div class="card-header bg-grey text-black">
+                  <h6>Comments</h6>
+                </div>
+                <div class="card-body">
+                  <div class="mb-3">
+                    <p class="mb-1"><strong>HOD Comment:</strong></p>
+                    <p class="text-muted">${request.comments?.hod || 'No comment'}</p>
+                  </div>
+                  <div class="mb-3">
+                    <p class="mb-1"><strong>HR Comment:</strong></p>
+                    <p class="text-muted">${request.comments?.hr || 'No comment'}</p>
+                  </div>
+                  <div class="mb-3">
+                    <p class="mb-1"><strong>IT Comment:</strong></p>
+                    <p class="text-muted">${request.comments?.ithod || 'No comment'}</p>
                   </div>
                 </div>
               </div>
             </div>
-            
-            <div class="card">
-              <div class="card-header bg-grey text-black">
-                <h6>Approval Status</h6>
-              </div>
-              <div class="card-body">
-                <div class="d-flex justify-content-between">
-                  <div class="text-center">
-                    <p class="mb-1"><strong>HOD</strong></p>
-                    <span class="badge ${getStatusBadgeClass(request.status.hod)}">
-                      ${formatStatus(request.status.hod)}
-                    </span>
-                  </div>
-                  <div class="text-center">
-                    <p class="mb-1"><strong>HR</strong></p>
-                    <span class="badge ${getStatusBadgeClass(request.status.hr)}">
-                      ${formatStatus(request.status.hr)}
-                    </span>
-                  </div>
-                  <div class="text-center">
-                    <p class="mb-1"><strong>IT</strong></p>
-                    <span class="badge ${getStatusBadgeClass(request.status.ithod)}">
-                      ${formatStatus(request.status.ithod)}
-                    </span>
-                  </div>
-                </div>
-              </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
-
-            <div class="card mt-3">
-              <div class="card-header bg-grey text-black">
-                <h6>Comments</h6>
-              </div>
-              <div class="card-body">
-                <div class="mb-3">
-                  <p class="mb-1"><strong>HOD Comment:</strong></p>
-                  <p class="text-muted">${request.comments?.hod || 'No comment'}</p>
-                </div>
-                <div class="mb-3">
-                  <p class="mb-1"><strong>HR Comment:</strong></p>
-                  <p class="text-muted">${request.comments?.hr || 'No comment'}</p>
-                </div>
-                <div class="mb-3">
-                  <p class="mb-1"><strong>IT Comment:</strong></p>
-                  <p class="text-muted">${request.comments?.ithod || 'No comment'}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
           </div>
         </div>
       </div>
-    </div>
-  `;
+    `;
 
-  // Add modal to the body
-  const modalContainer = document.createElement('div');
-  modalContainer.innerHTML = modalHTML;
-  document.body.appendChild(modalContainer);
+    // Add modal to the body
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
 
-  // Initialize and show the modal
-  const modal = new bootstrap.Modal(document.getElementById('requestDetailsModal'));
-  modal.show();
-
-  // Clean up when modal is hidden
-  document.getElementById('requestDetailsModal').addEventListener('hidden.bs.modal', function() {
-    cleanupExistingModals();
-  });
-}
-
-// Helper function to clean up existing modals
-function cleanupExistingModals() {
-  // Remove all existing modals
-  const existingModals = document.querySelectorAll('#requestDetailsModal');
-  existingModals.forEach(modal => {
-    // Hide the modal first if it's shown
-    if (modal.classList.contains('show')) {
-      modal.classList.remove('show');
-      modal.style.display = 'none';
+    // Initialize and show the modal
+    const modalElement = document.getElementById('requestDetailsModal');
+    if (!modalElement) {
+      console.error('Modal element not found after creation');
+      return;
     }
-    modal.remove();
-  });
 
-  // Remove all existing modal backdrops
-  const existingBackdrops = document.querySelectorAll('.modal-backdrop');
-  existingBackdrops.forEach(backdrop => backdrop.remove());
+    const modal = new bootstrap.Modal(modalElement, {
+      backdrop: 'static',
+      keyboard: false
+    });
+    
+    // Add event listener for modal hidden event
+    modalElement.addEventListener('hidden.bs.modal', function() {
+      cleanupExistingModals();
+    }, { once: true });
 
-  // Reset body styles
-  document.body.style.overflow = 'auto';
-  document.body.style.paddingRight = '0';
+    modal.show();
+  } catch (error) {
+    console.error('Error in showRequestDetails:', error);
+    cleanupExistingModals();
+  }
 }
-
 
 // Get appropriate Bootstrap badge class for status
 function getStatusBadgeClass(status) {
@@ -481,12 +534,18 @@ function handleSearch(e) {
       (r.department && r.department.toLowerCase().includes(searchTerm)) ||
       (r.location && r.location.toLowerCase().includes(searchTerm)) ||
       (r.item && r.item.toLowerCase().includes(searchTerm)) ||
-      (r.specialAllowance && r.specialAllowance.toLowerCase().includes(searchTerm))
-      
+      (r.specialAllowance && r.specialAllowance.toLowerCase().includes(searchTerm)) ||
+      (r.employeeCode && r.employeeCode.toLowerCase().includes(searchTerm)) ||
+      (r.email && r.email.toLowerCase().includes(searchTerm)) ||
+      (r.contactNumber && r.contactNumber.toLowerCase().includes(searchTerm)) ||
+      (r.address && r.address.toLowerCase().includes(searchTerm)) ||
+      (r.reason && r.reason.toLowerCase().includes(searchTerm)) ||
+      (r.alternateContactNumber && r.alternateContactNumber.toLowerCase().includes(searchTerm))
     );
   });
   displayRequests(filtered);
 }
+
 // Handle filter buttons
 function handleFilter(e) {
   const btn = e.target.closest(".btn");
@@ -521,27 +580,49 @@ function initDashboard() {
   console.log("Initializing dashboard...");
   loadRequests();
 
-  // Add event listeners
-  document.getElementById("searchInput").addEventListener("input", handleSearch);
-  document.querySelector(".btn-group").addEventListener("click", handleFilter);
-  
-  // Update this event listener to handle both action buttons and ID clicks
-  document.getElementById("requestsTableBody").addEventListener("click", function (e) {
-    const btn = e.target.closest(".action-btn");
-    if (btn) {
-      e.preventDefault();
-      handleAction(e);
-    }
-    
-    const idLink = e.target.closest(".request-id-link");
-    if (idLink) {
-      e.preventDefault();
-      showRequestDetails(idLink.dataset.id);
-    }
-  });
+  // Remove any existing event listeners first
+  const searchInput = document.getElementById("searchInput");
+  const btnGroup = document.querySelector(".btn-group");
+  const tableBody = document.getElementById("requestsTableBody");
+
+  if (searchInput) {
+    const newSearchInput = searchInput.cloneNode(true);
+    searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+    newSearchInput.addEventListener("input", handleSearch);
+  }
+
+  if (btnGroup) {
+    const newBtnGroup = btnGroup.cloneNode(true);
+    btnGroup.parentNode.replaceChild(newBtnGroup, btnGroup);
+    newBtnGroup.addEventListener("click", handleFilter);
+  }
+
+  if (tableBody) {
+    const newTableBody = tableBody.cloneNode(true);
+    tableBody.parentNode.replaceChild(newTableBody, tableBody);
+    newTableBody.addEventListener("click", function (e) {
+      const btn = e.target.closest(".action-btn");
+      if (btn) {
+        e.preventDefault();
+        handleAction(e);
+      }
+      
+      const idLink = e.target.closest(".request-id-link");
+      if (idLink) {
+        e.preventDefault();
+        showRequestDetails(idLink.dataset.id);
+      }
+    });
+  }
 
   // Auto-refresh every 30 seconds
-  setInterval(loadRequests, 30000);
+  const refreshInterval = setInterval(loadRequests, 30000);
+
+  // Cleanup function for when the page is unloaded
+  window.addEventListener('beforeunload', function() {
+    clearInterval(refreshInterval);
+    cleanupExistingModals();
+  });
 }
 
 // Run initialization when page loads
