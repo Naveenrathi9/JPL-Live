@@ -1,7 +1,5 @@
 //const BASE_URL = "http://localhost:5000";
 const BASE_URL = "https://jpl-backend.onrender.com";
-//const BASE_URL = "https://jpl-z0s7.onrender.com";
-//const BASE_URL = "https://jpl-admin.onrender.com";
 
 // Global variables
 let commentModalInstance = null;
@@ -130,7 +128,7 @@ function displayRequests(requests, filter = "all") {
             </td>
             <td>
                 ${
-                  request.status.hr === "pending"
+                  request.status.hr === "pending" && !request.actionedViaEmail?.hr
                     ? `
                     <button class="btn btn-sm btn-outline-success action-btn approve" 
                             data-id="${request._id}" 
@@ -152,6 +150,8 @@ function displayRequests(requests, filter = "all") {
                         : ''
                     }
                 `
+                    : request.actionedViaEmail?.hr
+                    ? `<span class="text-muted">Action taken via email</span>`
                     : ""
                 }
             </td>
@@ -217,9 +217,9 @@ function showRequestDetails(requestId) {
                     <p><strong>Department:</strong> ${request.department || 'N/A'}</p>
                     <p><strong>Location:</strong> ${request.location || 'N/A'}</p>
                     <p><strong>Email:</strong> ${request.email || 'N/A'}</p>
-                    <p><strong>Contact:</strong> ${request.contactNumber || 'N/A'}</p>
-                   
-                   
+                    <p><strong>Email:</strong> ${request.contactNumber || 'N/A'}</p>
+                    <p><strong>Email:</strong> ${request.alternateContactNumber || 'N/A'}</p>
+                    <p><strong>Email:</strong> ${request.address || 'N/A'}</p>
                   </div>
                 </div>
               </div>
@@ -230,11 +230,9 @@ function showRequestDetails(requestId) {
                   </div>
                   <div class="card-body">
                     <p><strong>Item Requested:</strong> ${request.item || 'N/A'}</p>
-                     <p><strong>Address:</strong> ${request.address || 'N/A'}</p>
                     <p><strong>Special Allowance:</strong> ${request.specialAllowance || 'N/A'}</p>
                     <p><strong>Reason:</strong> ${request.reason || 'N/A'}</p>
                     <p><strong>Date Requested:</strong> ${new Date(request.createdAt).toLocaleString() || 'N/A'}</p>
-                     <p><strong>Alternate Contact:</strong> ${request.alternateContactNumber || 'N/A'}</p>
                   </div>
                 </div>
               </div>
@@ -474,19 +472,15 @@ async function handleAction(e) {
 function handleSearch(e) {
   const searchTerm = e.target.value.toLowerCase();
   const requests = JSON.parse(localStorage.getItem("requests") || "[]");
-  const filtered = requests.filter((r) => {
-    // Search through all relevant fields
-    return (
-      (r.name && r.name.toLowerCase().includes(searchTerm)) ||
-      (r.department && r.department.toLowerCase().includes(searchTerm)) ||
-      (r.location && r.location.toLowerCase().includes(searchTerm)) ||
-      (r.item && r.item.toLowerCase().includes(searchTerm)) ||
-      (r.specialAllowance && r.specialAllowance.toLowerCase().includes(searchTerm))
-      
-    );
-  });
+  const filtered = requests.filter(
+    (r) =>
+      r.name.toLowerCase().includes(searchTerm) ||
+      r.department.toLowerCase().includes(searchTerm) ||
+      r.item.toLowerCase().includes(searchTerm)
+  );
   displayRequests(filtered);
 }
+
 // Handle filter buttons
 function handleFilter(e) {
   const btn = e.target.closest(".btn");
