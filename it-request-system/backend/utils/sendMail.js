@@ -115,6 +115,7 @@ const sendRejectionMail = async (requestData, rejectionLevel) => {
             Department: ${requestData.department}<br>
             Requested Item: ${requestData.item}<br>
             Reason: ${requestData.reason || 'Not specified'}
+            Reason for Rejection: ${requestData.comments[rejectionLevel.toLowerCase()] || 'Not specified'}<br>
           </p>
           <p style="font-size: 15px; color: #444; line-height: 1.6; margin-top: 25px;">
             Please contact your ${rejectionLevel.toUpperCase()} for more information.
