@@ -49,6 +49,28 @@ const handleApproval = async (req, res) => {
       return res.status(404).send("Request not found");
     }
 
+    // Check if action has already been taken
+    if (request.actionedViaEmail?.[type] || request.status[type] !== "pending") {
+      return res.status(400).send(`
+        <div style="font-family: 'Segoe UI', sans-serif; background-color: #f4f6f8; min-height: 100vh; display: flex; align-items: center; justify-content: center;">
+          <div style="background-color: #ffffff; border: 1px solid #e0e0e0; padding: 40px; border-radius: 12px; text-align: center; max-width: 500px; box-shadow: 0 5px 20px rgba(0,0,0,0.1);">
+            <div style="font-size: 50px; margin-bottom: 15px; color: #dc3545;">
+              ⚠️
+            </div>
+            <h2 style="color: #dc3545; margin-bottom: 15px; font-size: 24px; font-weight: 600;">
+              Action Already Taken
+            </h2>
+            <p style="font-size: 16px; color: #555;">
+              This request has already been ${request.status[type]} by ${type.toUpperCase()}.
+            </p>
+            <p style="margin-top: 40px; font-size: 13px; color: #999;">
+              No further action can be taken on this request.
+            </p>
+          </div>
+        </div>
+      `);
+    }
+
     // Validate the approval sequence
     if (type === "hr" && request.status.hod !== "approved") {
       return res.status(400).send("HOD must approve before HR");
@@ -57,8 +79,10 @@ const handleApproval = async (req, res) => {
       return res.status(400).send("HR must approve before ITHOD");
     }
 
-    // Update the request status
+    // Update the request status and mark as actioned via email
     request.status[type] = status;
+    request.actionedViaEmail = request.actionedViaEmail || {};
+    request.actionedViaEmail[type] = true;
     await request.save();
 
     if (status === "approved") {
@@ -151,9 +175,11 @@ const updateRequestStatus = async (req, res) => {
       return res.status(400).json({ error: "HR must approve before ITHOD" });
     }
 
-    // Update the request status and comment
+    // Update the request status, comment, and mark as actioned via dashboard
     request.status[role] = status;
     request.comments[role] = comment;
+    request.actionedViaEmail = request.actionedViaEmail || {};
+    request.actionedViaEmail[role] = false; // Mark as actioned via dashboard
     await request.save();
 
     if (status === "approved") {
