@@ -230,7 +230,7 @@ function showRequestDetails(requestId) {
                   </div>
                   <div class="card-body">
                     <p><strong>Item Requested:</strong> ${request.item || 'N/A'}</p>
-                     <p><strong>Email:</strong> ${request.address || 'N/A'}</p>
+                     <p><strong>Address:</strong> ${request.address || 'N/A'}</p>
                     <p><strong>Special Allowance:</strong> ${request.specialAllowance || 'N/A'}</p>
                     <p><strong>Reason:</strong> ${request.reason || 'N/A'}</p>
                     <p><strong>Date Requested:</strong> ${new Date(request.createdAt).toLocaleString() || 'N/A'}</p>
