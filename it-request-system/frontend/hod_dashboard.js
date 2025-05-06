@@ -1,5 +1,5 @@
-const BASE_URL = "http://localhost:5000";
-//const BASE_URL = "https://jpl-z0s7.onrender.com";
+//const BASE_URL = "http://localhost:5000";
+const BASE_URL = "https://jpl-backend.onrender.com";
 
 // Check if user is logged in
 function checkAuth() {
