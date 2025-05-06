@@ -230,9 +230,9 @@ function showRequestDetails(requestId) {
                     <p><strong>Department:</strong> ${request.department || 'N/A'}</p>
                     <p><strong>Location:</strong> ${request.location || 'N/A'}</p>
                     <p><strong>Email:</strong> ${request.email || 'N/A'}</p>
-                    <p><strong>Email:</strong> ${request.contactNumber || 'N/A'}</p>
-                    <p><strong>Email:</strong> ${request.alternateContactNumber || 'N/A'}</p>
-                    <p><strong>Email:</strong> ${request.address || 'N/A'}</p>
+                    <p><strong>Contact:</strong> ${request.contactNumber || 'N/A'}</p>
+                   
+                    
                   </div>
                 </div>
               </div>
@@ -243,9 +243,11 @@ function showRequestDetails(requestId) {
                   </div>
                   <div class="card-body">
                     <p><strong>Item Requested:</strong> ${request.item || 'N/A'}</p>
+                    <p><strong>Address:</strong> ${request.address || 'N/A'}</p>
                     <p><strong>Special Allowance:</strong> ${request.specialAllowance || 'N/A'}</p>
                     <p><strong>Reason:</strong> ${request.reason || 'N/A'}</p>
                     <p><strong>Date Requested:</strong> ${new Date(request.createdAt).toLocaleString() || 'N/A'}</p>
+                    <p><strong>Alternate contact:</strong> ${request.alternateContactNumber || 'N/A'}</p>
                   </div>
                 </div>
               </div>
