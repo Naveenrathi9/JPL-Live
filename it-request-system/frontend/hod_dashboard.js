@@ -1,5 +1,9 @@
 //const BASE_URL = "http://localhost:5000";
 const BASE_URL = "https://jpl-backend.onrender.com";
+//const BASE_URL = "https://jpl-z0s7.onrender.com";
+
+// Global variables
+let commentModalInstance = null;
 
 // Check if user is logged in
 function checkAuth() {
@@ -356,57 +360,87 @@ function getStatusBadgeClass(status) {
 
 // Handle request actions (approve, reject)
 async function handleAction(e) {
-  if (!e.target.classList.contains("action-btn")) return;
+  const button = e.target.closest(".action-btn");
+  if (!button) return;
 
-  const requestId = e.target.dataset.id;
-  const role = e.target.dataset.role;
-  const action = e.target.classList.contains("approve") ? "approved" : "rejected";
+  const originalContent = button.innerHTML;
+  
+  // Show loading state
+  button.disabled = true;
+  button.innerHTML = `
+    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+    Processing...
+  `;
 
-  // Show comment input modal
-  const comment = await new Promise((resolve) => {
-    const modalHTML = `
-      <div class="modal fade" id="commentModal" tabindex="-1">
-        <div class="modal-dialog">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title">Add Comment</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-              <div class="mb-3">
-                <label for="commentInput" class="form-label">Comment:</label>
-                <textarea class="form-control" id="commentInput" rows="3" required></textarea>
-              </div>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-              <button type="button" class="btn btn-primary" id="submitComment">Submit</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-    const modal = new bootstrap.Modal(document.getElementById('commentModal'));
-    modal.show();
-
-    document.getElementById('submitComment').addEventListener('click', () => {
-      const comment = document.getElementById('commentInput').value.trim();
-      if (comment) {
-        modal.hide();
-        resolve(comment);
-      }
-    });
-
-    document.getElementById('commentModal').addEventListener('hidden.bs.modal', () => {
-      resolve(null);
-    });
-  });
-
-  if (!comment) return; // User cancelled
+  const requestId = button.dataset.id;
+  const role = button.dataset.role;
+  const action = button.classList.contains("approve") ? "approved" : "rejected";
 
   try {
+    // Show comment input modal
+    const comment = await new Promise((resolve) => {
+      // Create modal if it doesn't exist
+      if (!commentModalInstance) {
+        const modalHTML = `
+          <div class="modal fade" id="commentModal" tabindex="-1">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">Add Comment</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                  <div class="mb-3">
+                    <label for="commentInput" class="form-label">Comment:</label>
+                    <textarea class="form-control" id="commentInput" rows="3" required></textarea>
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                  <button type="button" class="btn btn-primary" id="submitComment">Submit</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        commentModalInstance = new bootstrap.Modal(document.getElementById('commentModal'));
+      }
+
+      const modalElement = document.getElementById('commentModal');
+      const submitBtn = document.getElementById('submitComment');
+      const commentInput = document.getElementById('commentInput');
+
+      // Clear previous comment
+      commentInput.value = '';
+
+      // Remove existing event listeners
+      const newSubmitBtn = submitBtn.cloneNode(true);
+      submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
+
+      // Add new event listeners
+      newSubmitBtn.addEventListener('click', () => {
+        const comment = commentInput.value.trim();
+        if (comment) {
+          commentModalInstance.hide();
+          resolve(comment);
+        }
+      });
+
+      modalElement.addEventListener('hidden.bs.modal', () => {
+        resolve(null);
+      }, { once: true });
+
+      commentModalInstance.show();
+    });
+
+    if (!comment) {
+      // Restore button state if user cancels
+      button.disabled = false;
+      button.innerHTML = originalContent;
+      return;
+    }
+
     const response = await fetch(`${BASE_URL}/api/requests/${requestId}/status`, {
       method: "PUT",
       headers: {
@@ -423,11 +457,24 @@ async function handleAction(e) {
       throw new Error("Failed to update request status");
     }
 
+    // Update button to show success state
+    button.innerHTML = `
+      <i class="fas fa-check"></i>
+      ${action === "approved" ? "Approved" : "Rejected"}
+    `;
+    button.classList.remove("btn-outline-success", "btn-outline-danger");
+    button.classList.add(action === "approved" ? "btn-success" : "btn-danger");
+    button.disabled = true;
+
     // Reload requests to show updated status
     loadRequests();
   } catch (error) {
     console.error("Error updating request status:", error);
     alert("Failed to update request status. Please try again.");
+    
+    // Restore button state on error
+    button.disabled = false;
+    button.innerHTML = originalContent;
   }
 }
 
