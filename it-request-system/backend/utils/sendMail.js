@@ -23,7 +23,13 @@ const generateMailHTML = (requestData, requestId, approverType) => {
     specialAllowance,
     item,
     reason,
+    status = { hod: 'pending', hr: 'pending', ithod: 'pending' },
+    actionedViaEmail = {}
   } = requestData;
+
+  // Check if action has already been taken for this approver type
+  const isActioned = actionedViaEmail?.[approverType.toLowerCase()] || 
+                    status[approverType.toLowerCase()] !== "pending";
 
   const links = {
     approve: `${process.env.CLIENT_URL}/api/approve?id=${requestId}&type=${approverType.toLowerCase()}&status=approved`,
@@ -47,8 +53,13 @@ const generateMailHTML = (requestData, requestId, approverType) => {
           You are requested to review and verify before responding to this request using the options below:
         </p>
         <div style="margin: 25px 0;">
-          <a href="${links.approve}" style="display: inline-block; padding: 12px 22px; background-color: #28a745; color: #ffffff; text-decoration: none; border-radius: 5px; margin-right: 12px;">✅ Approve</a>
-          <a href="${links.reject}" style="display: inline-block; padding: 12px 22px; background-color: #dc3545; color: #ffffff; text-decoration: none; border-radius: 5px;">❌ Reject</a>
+          ${isActioned 
+            ? `<p style="color: #dc3545; font-weight: bold;">This request has already been ${status[approverType.toLowerCase()]} by ${approverType}.</p>`
+            : `
+              <a href="${links.approve}" style="display: inline-block; padding: 12px 22px; background-color: #28a745; color: #ffffff; text-decoration: none; border-radius: 5px; margin-right: 12px;">✅ Approve</a>
+              <a href="${links.reject}" style="display: inline-block; padding: 12px 22px; background-color: #dc3545; color: #ffffff; text-decoration: none; border-radius: 5px;">❌ Reject</a>
+            `
+          }
         </div>
       </div>
     </div>
