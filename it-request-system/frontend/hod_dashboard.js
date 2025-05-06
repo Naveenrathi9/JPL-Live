@@ -484,15 +484,19 @@ async function handleAction(e) {
 function handleSearch(e) {
   const searchTerm = e.target.value.toLowerCase();
   const requests = JSON.parse(localStorage.getItem("requests") || "[]");
-  const filtered = requests.filter(
-    (r) =>
-      r.name.toLowerCase().includes(searchTerm) ||
-      r.department.toLowerCase().includes(searchTerm) ||
-      r.item.toLowerCase().includes(searchTerm)
-  );
+  const filtered = requests.filter((r) => {
+    // Search through all relevant fields
+    return (
+      (r.name && r.name.toLowerCase().includes(searchTerm)) ||
+      (r.department && r.department.toLowerCase().includes(searchTerm)) ||
+      (r.location && r.location.toLowerCase().includes(searchTerm)) ||
+      (r.item && r.item.toLowerCase().includes(searchTerm)) ||
+      (r.specialAllowance && r.specialAllowance.toLowerCase().includes(searchTerm))
+      
+    );
+  });
   displayRequests(filtered);
 }
-
 // Handle filter buttons
 function handleFilter(e) {
   const btn = e.target.closest(".btn");
